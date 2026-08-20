@@ -72,7 +72,13 @@ def main() -> None:
     )
 
     text = generate(system, user)
+    print(f"--- generated (len={len(text)}) ---\n{text}\n--- end ---")
     assert 1 <= len(text) <= 280, f"len={len(text)}: {text!r}"
+    hashtags = [w for w in text.split() if w.startswith("#")]
+    assert 1 <= len(hashtags) <= 2, f"hashtags={hashtags}: プロンプト守られず・投稿中止"
+    banned = ["TriEdgeなら"]  # ponytail: 定型化した挿入句を検出, 増えたらこのリストに追加
+    for b in banned:
+        assert text.count(b) == 0, f"禁止フレーズ '{b}' が含まれる・投稿中止"
 
     tweet_id = post_x(text)
 
