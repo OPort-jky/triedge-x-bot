@@ -76,9 +76,13 @@ def main() -> None:
     assert 1 <= len(text) <= 280, f"len={len(text)}: {text!r}"
     hashtags = [w for w in text.split() if w.startswith("#")]
     assert 1 <= len(hashtags) <= 2, f"hashtags={hashtags}: プロンプト守られず・投稿中止"
-    banned = ["TriEdgeなら"]  # ponytail: 定型化した挿入句を検出, 増えたらこのリストに追加
+    # 禁止フレーズ: 定型化 or 嘘（app は既に公開済so「作ってます」等は嘘）
+    banned = ["TriEdgeなら", "作ってます", "作りたい", "開発中", "実装しました",
+              "実装中", "開発してます", "唯一無二"]
     for b in banned:
         assert text.count(b) == 0, f"禁止フレーズ '{b}' が含まれる・投稿中止"
+    # #TriEdge タグ必須（過去投稿全件で使用・ブランドタグ）
+    assert "#TriEdge" in text, "#TriEdge タグが無い・投稿中止"
 
     tweet_id = post_x(text)
 
