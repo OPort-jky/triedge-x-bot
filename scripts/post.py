@@ -47,7 +47,14 @@ def post_x(text: str) -> str:
         access_token=os.environ["X_ACCESS_TOKEN"],
         access_token_secret=os.environ["X_ACCESS_SECRET"],
     )
-    resp = tw.create_tweet(text=text)
+    try:
+        resp = tw.create_tweet(text=text)
+    except tweepy.errors.HTTPException as e:
+        # 403等の詳細body をログに残す (X の reason: duplicate-rules / rate-limit 等が読める)
+        body = getattr(e.response, "text", "(no body)")
+        code = getattr(e.response, "status_code", "?")
+        print(f"[X API error] status={code}\nbody={body}")
+        raise
     return str(resp.data["id"])
 
 
