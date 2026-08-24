@@ -70,19 +70,24 @@ def main() -> None:
     system = (
         f"{base}\n\n---\n【時間帯ガイド】\n{slots}\n\n---\n"
         f"【最新戦略メモ（自動生成）】\n{strategy}\n\n---\n"
-        f"【直近投稿（重複回避用）】\n{recent}"
+        "【直近投稿（★絶対に主題・語彙を重ねてはいけない）】\n"
+        "以下は直近の投稿。X の重複コンテンツ検出に引っかかると 403 で投稿失敗する。\n"
+        "同じ主題（例: 体重の変動 / ベンチプレス / 松屋牛丼 / 液体カロリー 等）や、\n"
+        "同じ固有名詞・具体例を絶対に繰り返さない。全く別の切り口・別のジャンルで書く。\n\n"
+        f"{recent}"
     )
     user = (
         f"次の投稿を1件だけ生成。時間帯: {slot}。"
         "本文だけを出力し、前置きや解説は一切不要。"
-        "280字以内・ハッシュタグは最大2個・URLは https://triedge.app または App Store URL のみ。"
+        "280字以内・ハッシュタグは #TriEdge を含めて2〜4個・URLは基本入れない（bio に固定）。"
+        "★直近投稿と主題・語彙・構造すべて別物にすること（X の 403 duplicate detection 回避）。"
     )
 
     text = generate(system, user)
     print(f"--- generated (len={len(text)}) ---\n{text}\n--- end ---")
     assert 1 <= len(text) <= 280, f"len={len(text)}: {text!r}"
     hashtags = [w for w in text.split() if w.startswith("#")]
-    assert 1 <= len(hashtags) <= 2, f"hashtags={hashtags}: プロンプト守られず・投稿中止"
+    assert 2 <= len(hashtags) <= 4, f"hashtags={hashtags}: 2〜4個必須 (過去投稿分布)・投稿中止"
     # 禁止フレーズ: 嘘（app は既に公開済so「作ってます」等は嘘）+ 誇大表現
     # ponytail: 「TriEdgeなら」は元々禁止してたが単発なら自然so許容, 連続使用は strategy.md 経由で自動抑制
     banned = ["作ってます", "作りたい", "開発中", "実装しました",
