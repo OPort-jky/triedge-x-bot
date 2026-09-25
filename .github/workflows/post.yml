@@ -33,10 +33,12 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/post.py
-      - name: Commit history
+      - name: Commit state
+        # ★ if: always() で post 失敗時も failed.jsonl を必ずコミット (診断素材保存)
+        if: always()
         run: |
           git config user.name "triedge-bot"
           git config user.email "bot@triedge.app"
-          git add state/history.jsonl
-          git diff --staged --quiet || git commit -m "chore(state): posted at $(date -u +%Y-%m-%dT%H:%MZ)"
+          git add state/history.jsonl state/failed.jsonl 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore(state): update at $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
