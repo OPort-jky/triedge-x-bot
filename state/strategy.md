@@ -1,6 +1,6 @@
 # TriEdge X 戦略メモ（bot自己生成・毎日00:00 JST更新）
 
-直近測定: 16件・impressions中央値 0・likes中央値 0
+直近測定: 17件・impressions中央値 0・likes中央値 0
 
 ## トップ5（反応良・パターンを踏襲）
 - [imp=2 like=0 slot=morning] 朝起きて体重計に乗ったら、昨日より2kg減ってた。
