@@ -1,5 +1,5 @@
 """投稿1件生成→Xに投稿→history.jsonl追記。3投稿/日のcronから呼ばれる。"""
-import os, json, pathlib, datetime, zoneinfo
+import os, json, pathlib, datetime, re, zoneinfo
 import anthropic
 import tweepy
 
@@ -22,6 +22,37 @@ def recent_texts(history: pathlib.Path, n: int = 15) -> str:
     lines = [l for l in history.read_text(encoding="utf-8").splitlines() if l.strip()]
     items = [json.loads(l) for l in lines[-n:]]
     return "\n".join(f"- {e['text']}" for e in items) or "（初投稿）"
+
+
+def recent_texts_list(history: pathlib.Path, n: int = 10) -> list[str]:
+    """類似度チェック用: 直近 n 件の text を list で返す (プロンプト用の recent_texts と別枠)。"""
+    if not history.exists(): return []
+    lines = [l for l in history.read_text(encoding="utf-8").splitlines() if l.strip()]
+    return [json.loads(l).get("text", "") for l in lines[-n:]]
+
+
+def _char_ngrams(text: str, n: int = 4) -> set:
+    """日本語向けに char n-gram で語彙・骨格の類似を測る。ハッシュタグ・空白は除外。"""
+    clean = re.sub(r"#\S+", "", text)
+    clean = re.sub(r"\s+", "", clean)
+    if len(clean) < n:
+        return set()
+    return {clean[i:i + n] for i in range(len(clean) - n + 1)}
+
+
+def max_similarity(text: str, others: list[str], n: int = 4) -> float:
+    """text vs others 各要素の max Jaccard 類似度。others 空なら 0。"""
+    a = _char_ngrams(text, n)
+    if not a: return 0.0
+    best = 0.0
+    for o in others:
+        b = _char_ngrams(o, n)
+        if not b: continue
+        inter = len(a & b)
+        union = len(a | b)
+        if union > 0:
+            best = max(best, inter / union)
+    return best
 
 
 def generate(system: str, user: str) -> str:
@@ -117,6 +148,25 @@ def main() -> None:
     # attempt 1
     text = generate(system, user)
     print(f"--- generated (len={len(text)}) ---\n{text}\n--- end ---")
+
+    # ★AI 丸出し回避: 直近10投稿と char 4-gram で類似度チェック(engagement 非依存の
+    # フィードバック)。Jaccard 類似度が 0.35 超なら「型が似すぎ」と判定し1回だけ regenerate。
+    # 再生成が改善しない場合は元 text を使う(loop 防止)。
+    recent_list = recent_texts_list(ROOT / "state/history.jsonl", n=10)
+    sim = max_similarity(text, recent_list)
+    if sim > 0.35 and recent_list:
+        print(f"[novelty] similarity={sim:.3f} > 0.35, regenerating…")
+        novelty_user = user + (
+            f"\n\n★注意: 直近の投稿と語彙・骨格が似すぎている(char 4-gram 類似度={sim:.2f})。"
+            "同じ「〜だった。でも TriEdge で〜」のテンプレ・同じ締めの常套句・"
+            "同じハッシュタグ組合せを避け、**全く別の書き方**で生成し直す。"
+            "問題→解決の型を避け、断定・質問・具体例の深掘り・リスト形式など別の型で。"
+        )
+        text2 = generate(system, novelty_user)
+        sim2 = max_similarity(text2, recent_list)
+        print(f"--- novelty-retry (sim={sim2:.3f} len={len(text2)}) ---\n{text2}\n--- end ---")
+        if sim2 < sim:
+            text = text2  # 改善したら採用
     validate(text)
     tweet_id, err = post_x(text)
 

@@ -30,6 +30,19 @@ def main() -> None:
         print(f"only {len(measured)} measured, skip strategy")
         return
 
+    # ★シグナル不足ガード: median impressions が低いと top5 は運や露出タイミングのノイズになり、
+    # 「反応良い型」の指示は実質ランダム5件を推奨するだけになる。同型を毎日強化学習して
+    # AI 丸出しの型が固定化するので、シグナルが揃うまで strategy を出さず自然な多様性に任せる。
+    imps_all = [e["impressions"] or 0 for e in measured]
+    median_imp = statistics.median(imps_all)
+    if median_imp < 5:
+        OUT.write_text(
+            f"（インプ中央値 {int(median_imp)}・シグナル不足で戦略生成保留・自然な多様性を優先）\n",
+            encoding="utf-8",
+        )
+        print(f"median impressions {median_imp} < 5, skip strategy for signal quality")
+        return
+
     ranked = sorted(measured, key=score, reverse=True)
     top5 = ranked[:5]
     bottom5 = ranked[-5:]
