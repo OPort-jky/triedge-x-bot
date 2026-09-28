@@ -3,8 +3,10 @@ name: post
 on:
   schedule:
     # UTC 指定。JST = UTC+9。
-    - cron: '30 22 * * *'  # 07:30 JST (morning)
-    - cron: '30 3 * * *'   # 12:30 JST (noon)
+    # ★1日1投稿に削減 (Track 3): 3投稿/日は Bot の automation シグナルを強め、
+    # X の anti-bot ML を刺激する副作用の疑いがあるうえ、フォロワー 0 期の高頻度投稿は
+    # 露出が薄まるだけで累積効果が乏しい。人間主導の reply エンゲージ (Track 2) を主軸に、
+    # bot は「毎晩1本の質」に絞る。時間帯はフィットネス層が最も動く 21:00 JST (night)。
     - cron: '0 12 * * *'   # 21:00 JST (night)
   workflow_dispatch:
 
