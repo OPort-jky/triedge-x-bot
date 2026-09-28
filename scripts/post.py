@@ -41,7 +41,7 @@ def generate(system: str, user: str) -> str:
 
 
 def post_x(text: str):
-    """成功=(tweet_id, None) / 失敗=(None, (status, body))。上位でリトライ判断する。"""
+    """成功=(tweet_id, None) / 失敗=(None, (status, body, headers))。上位でリトライ判断する。"""
     tw = tweepy.Client(
         consumer_key=os.environ["X_API_KEY"],
         consumer_secret=os.environ["X_API_SECRET"],
@@ -53,13 +53,16 @@ def post_x(text: str):
     except tweepy.errors.HTTPException as e:
         body = getattr(e.response, "text", "(no body)")
         code = getattr(e.response, "status_code", "?")
-        print(f"[X API error] status={code}\nbody={body}")
-        return None, (code, body)
+        # ★真因診断: X の x-rate-limit-* / x-response-* 系ヘッダを全部保存。
+        # 403 duplicate detection なのか / rate limit hit なのか / write hold なのかを切り分ける。
+        headers = dict(e.response.headers) if getattr(e, "response", None) is not None else {}
+        print(f"[X API error] status={code}\nbody={body}\nheaders={json.dumps(headers, ensure_ascii=False)}")
+        return None, (code, body, headers)
     return str(resp.data["id"]), None
 
 
 def log_failed(now, slot: str, text: str, attempt: int, err: tuple) -> None:
-    """失敗した生成テキストと X のレスポンスを state/failed.jsonl に追記。診断用。"""
+    """失敗した生成テキストと X のレスポンス(body+headers)を state/failed.jsonl に追記。診断用。"""
     entry = {
         "posted_at": now.isoformat(),
         "slot": slot,
@@ -67,6 +70,7 @@ def log_failed(now, slot: str, text: str, attempt: int, err: tuple) -> None:
         "text": text,
         "error_status": err[0],
         "error_body": err[1],
+        "error_headers": err[2] if len(err) > 2 else {},
     }
     (ROOT / "state").mkdir(exist_ok=True)
     with (ROOT / "state/failed.jsonl").open("a", encoding="utf-8") as f:
